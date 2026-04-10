@@ -10,27 +10,46 @@
 // To update llama.cpp:
 //   1. Download new release tarball
 //   2. Extract to src/
-//   3. Run: python scripts/sync_upstream.py
+//   3. Run: bash scripts/sync_upstream.sh
 //   4. Test build: m libllama
 
 cc_library_static {
     name: "libllama",
     vendor_available: true,
 
+    // Source list for llama.cpp b4547+.
+    // After running sync_upstream.sh, verify against actual src/ layout:
+    //   find src/ggml/src -name '*.c' -o -name '*.cpp'
+    //   find src/src -name '*.cpp'
+    // Not all files are needed — only core inference, no server/CLI code.
     srcs: [
+        // ggml core
         "src/ggml/src/ggml.c",
         "src/ggml/src/ggml-alloc.c",
         "src/ggml/src/ggml-backend.c",
+        "src/ggml/src/ggml-backend-reg.cpp",
         "src/ggml/src/ggml-quants.c",
+        "src/ggml/src/ggml-threading.cpp",
+        // ggml CPU backend
         "src/ggml/src/ggml-cpu/ggml-cpu.c",
+        "src/ggml/src/ggml-cpu/ggml-cpu.cpp",
         "src/ggml/src/ggml-cpu/ggml-cpu-quants.c",
         "src/ggml/src/ggml-cpu/ggml-cpu-aarch64.c",
+        // llama core
         "src/src/llama.cpp",
+        "src/src/llama-model.cpp",
+        "src/src/llama-model-loader.cpp",
+        "src/src/llama-context.cpp",
+        "src/src/llama-kv-cache.cpp",
         "src/src/llama-vocab.cpp",
         "src/src/llama-grammar.cpp",
         "src/src/llama-sampling.cpp",
+        "src/src/llama-batch.cpp",
+        "src/src/llama-chat.cpp",
+        "src/src/llama-adapter.cpp",
         "src/src/unicode.cpp",
         "src/src/unicode-data.cpp",
+        // common utilities
         "src/common/common.cpp",
         "src/common/sampling.cpp",
         "src/common/json-schema-to-grammar.cpp",
@@ -118,7 +137,4 @@ cc_library_shared {
     ],
 
     stl: "c++_static",
-
-    // Install to system partition
-    proprietary: false,
 }

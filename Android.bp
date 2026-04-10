@@ -1,0 +1,124 @@
+// Copyright (C) 2024 The AAOSP Project
+//
+// Licensed under the Apache License, Version 2.0
+
+// llama.cpp static library for AOSP
+// Built from upstream llama.cpp source with Android-specific config.
+//
+// Upstream: https://github.com/ggerganov/llama.cpp
+//
+// To update llama.cpp:
+//   1. Download new release tarball
+//   2. Extract to src/
+//   3. Run: python scripts/sync_upstream.py
+//   4. Test build: m libllama
+
+cc_library_static {
+    name: "libllama",
+    vendor_available: true,
+
+    srcs: [
+        "src/ggml/src/ggml.c",
+        "src/ggml/src/ggml-alloc.c",
+        "src/ggml/src/ggml-backend.c",
+        "src/ggml/src/ggml-quants.c",
+        "src/ggml/src/ggml-cpu/ggml-cpu.c",
+        "src/ggml/src/ggml-cpu/ggml-cpu-quants.c",
+        "src/ggml/src/ggml-cpu/ggml-cpu-aarch64.c",
+        "src/src/llama.cpp",
+        "src/src/llama-vocab.cpp",
+        "src/src/llama-grammar.cpp",
+        "src/src/llama-sampling.cpp",
+        "src/src/unicode.cpp",
+        "src/src/unicode-data.cpp",
+        "src/common/common.cpp",
+        "src/common/sampling.cpp",
+        "src/common/json-schema-to-grammar.cpp",
+    ],
+
+    local_include_dirs: [
+        "src/include",
+        "src/ggml/include",
+        "src/ggml/src",
+        "src/ggml/src/ggml-cpu",
+        "src/src",
+        "src/common",
+    ],
+
+    cflags: [
+        "-DNDEBUG",
+        "-DGGML_USE_CPU",
+        "-D_GNU_SOURCE",
+        "-O3",
+        "-fPIC",
+        "-pthread",
+        // ARM NEON is enabled by default on aarch64
+        "-Wall",
+        "-Wno-unused-parameter",
+        "-Wno-unused-function",
+        "-Wno-missing-field-initializers",
+    ],
+
+    arch: {
+        arm64: {
+            cflags: [
+                "-DGGML_USE_CPU_AARCH64",
+                "-mcpu=cortex-a76",
+            ],
+        },
+        x86_64: {
+            cflags: [
+                "-mavx2",
+                "-mfma",
+                "-mf16c",
+            ],
+        },
+    },
+
+    // Cuttlefish (x86_64) and real devices (arm64) both supported
+    compile_multilib: "both",
+
+    stl: "c++_static",
+
+    export_include_dirs: [
+        "src/include",
+        "src/ggml/include",
+        "src/common",
+    ],
+}
+
+// JNI shared library used by LlmManagerService
+cc_library_shared {
+    name: "libllm_jni",
+
+    srcs: [
+        "jni/llm_jni.cpp",
+    ],
+
+    shared_libs: [
+        "liblog",
+        "libnativehelper",
+    ],
+
+    static_libs: [
+        "libllama",
+    ],
+
+    local_include_dirs: [
+        "src/include",
+        "src/ggml/include",
+        "src/common",
+    ],
+
+    cflags: [
+        "-DNDEBUG",
+        "-O3",
+        "-Wall",
+        "-Wno-unused-parameter",
+    ],
+
+    stl: "c++_static",
+
+    // Install to system partition
+    proprietary: false,
+}

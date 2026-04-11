@@ -32,7 +32,6 @@ cc_library_static {
         "src/ggml/src/ggml-threading.cpp",
         "src/ggml/src/gguf.cpp",
         // ggml CPU backend
-        "src/ggml/src/ggml-cpu/ggml-cpu.c",
         "src/ggml/src/ggml-cpu/ggml-cpu.cpp",
         "src/ggml/src/ggml-cpu/ggml-cpu-quants.c",
         "src/ggml/src/ggml-cpu/ggml-cpu-aarch64.cpp",

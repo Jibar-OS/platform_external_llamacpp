@@ -31,6 +31,7 @@
 #include <unistd.h>
 
 #include "llama.h"
+#include "common.h"
 
 #define LOG_TAG "LlmJNI"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -210,11 +211,11 @@ Java_com_android_server_llm_LlmManagerService_nativeGenerate(
 
     while (n_eval < n_tokens) {
         int batch_size = std::min(512, n_tokens - n_eval);
-        llama_batch_clear(batch);
+        common_batch_clear(batch);
 
         for (int i = 0; i < batch_size; i++) {
             bool is_last = (n_eval + i == n_tokens - 1);
-            llama_batch_add(batch, tokens[n_eval + i], n_eval + i,
+            common_batch_add(batch, tokens[n_eval + i], n_eval + i,
                     {0}, is_last);
         }
 
@@ -297,8 +298,8 @@ Java_com_android_server_llm_LlmManagerService_nativeGenerate(
         }
 
         // Evaluate the new token
-        llama_batch_clear(batch);
-        llama_batch_add(batch, new_token, n_cur, {0}, true);
+        common_batch_clear(batch);
+        common_batch_add(batch, new_token, n_cur, {0}, true);
         n_cur++;
 
         if (llama_decode(llm->ctx, batch) != 0) {

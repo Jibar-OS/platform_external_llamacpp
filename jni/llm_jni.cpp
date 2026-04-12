@@ -31,7 +31,28 @@
 #include <unistd.h>
 
 #include "llama.h"
-#include "common.h"
+
+// Inline batch helpers (avoiding common.h dependency which pulls in minja.hpp)
+static void llama_batch_clear_local(struct llama_batch & batch) {
+    batch.n_tokens = 0;
+}
+
+static void llama_batch_add_local(
+    struct llama_batch & batch,
+    llama_token id,
+    llama_pos pos,
+    const std::vector<llama_seq_id> & seq_ids,
+    bool logits) {
+    batch.token   [batch.n_tokens] = id;
+    batch.pos     [batch.n_tokens] = pos;
+    batch.n_seq_id[batch.n_tokens] = seq_ids.size();
+    for (size_t i = 0; i < seq_ids.size(); ++i) {
+        batch.seq_id[batch.n_tokens][i] = seq_ids[i];
+    }
+    batch.logits  [batch.n_tokens] = logits;
+    batch.n_tokens++;
+}
+
 
 #define LOG_TAG "LlmJNI"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -40,6 +61,7 @@
 
 struct LlmModel {
     llama_model* model = nullptr;
+    const llama_vocab* vocab = nullptr;
     llama_context* ctx = nullptr;
     int context_size = 0;
     int n_threads = 4;
@@ -113,6 +135,7 @@ Java_com_android_server_llm_LlmManagerService_nativeLoadModel(
 
     LlmModel* llm = new LlmModel();
     llm->model = model;
+    llm->vocab = llama_model_get_vocab(model);
     llm->ctx = ctx;
     llm->context_size = contextSize;
     llm->n_threads = threads;
@@ -163,7 +186,7 @@ Java_com_android_server_llm_LlmManagerService_nativeGenerate(
 
     // Tokenize — first call to get required size
     int n_tokens = llama_tokenize(
-            llm->model, promptStr, promptLen,
+            llm->vocab, promptStr, promptLen,
             nullptr, 0,
             /* add_special */ true,
             /* parse_special */ true);
@@ -175,7 +198,7 @@ Java_com_android_server_llm_LlmManagerService_nativeGenerate(
 
     std::vector<llama_token> tokens(n_tokens);
     n_tokens = llama_tokenize(
-            llm->model, promptStr, promptLen,
+            llm->vocab, promptStr, promptLen,
             tokens.data(), tokens.size(),
             /* add_special */ true,
             /* parse_special */ true);
@@ -211,11 +234,11 @@ Java_com_android_server_llm_LlmManagerService_nativeGenerate(
 
     while (n_eval < n_tokens) {
         int batch_size = std::min(512, n_tokens - n_eval);
-        common_batch_clear(batch);
+        llama_batch_clear_local(batch);
 
         for (int i = 0; i < batch_size; i++) {
             bool is_last = (n_eval + i == n_tokens - 1);
-            common_batch_add(batch, tokens[n_eval + i], n_eval + i,
+            llama_batch_add_local(batch, tokens[n_eval + i], n_eval + i,
                     {0}, is_last);
         }
 
@@ -267,7 +290,7 @@ Java_com_android_server_llm_LlmManagerService_nativeGenerate(
         llama_token new_token = llama_sampler_sample(sampler, llm->ctx, -1);
 
         // Check for end of generation
-        if (llama_token_is_eog(llm->model, new_token)) {
+        if (llama_token_is_eog(llm->vocab, new_token)) {
             LOGI("EOS at token %d", i);
             break;
         }
@@ -278,7 +301,7 @@ Java_com_android_server_llm_LlmManagerService_nativeGenerate(
         // Convert token to text
         char buf[256];
         int n = llama_token_to_piece(
-                llm->model, new_token, buf, sizeof(buf),
+                llm->vocab, new_token, buf, sizeof(buf),
                 /* special */ 0, /* parse_special */ false);
         if (n > 0) {
             std::string piece(buf, n);
@@ -298,8 +321,8 @@ Java_com_android_server_llm_LlmManagerService_nativeGenerate(
         }
 
         // Evaluate the new token
-        common_batch_clear(batch);
-        common_batch_add(batch, new_token, n_cur, {0}, true);
+        llama_batch_clear_local(batch);
+        llama_batch_add_local(batch, new_token, n_cur, {0}, true);
         n_cur++;
 
         if (llama_decode(llm->ctx, batch) != 0) {
@@ -341,7 +364,7 @@ Java_com_android_server_llm_LlmManagerService_nativeGetModelInfo(
 
     info += " | ctx=" + std::to_string(llm->context_size);
     info += " | threads=" + std::to_string(llm->n_threads);
-    info += " | vocab=" + std::to_string(llama_n_vocab(llm->model));
+    info += " | vocab=" + std::to_string(llama_n_vocab(llm->vocab));
 
     return env->NewStringUTF(info.c_str());
 }

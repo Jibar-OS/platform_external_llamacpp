@@ -16,6 +16,7 @@
 cc_library_static {
     name: "libllama",
     vendor_available: true,
+    product_available: true,
 
     // Source list for llama.cpp b4547+.
     // After running sync_upstream.sh, verify against actual src/ layout:
@@ -32,6 +33,7 @@ cc_library_static {
         "src/ggml/src/ggml-threading.cpp",
         "src/ggml/src/gguf.cpp",
         // ggml CPU backend
+        "src/ggml/src/ggml-cpu/ggml-cpu-impl.c",
         "src/ggml/src/ggml-cpu/ggml-cpu.cpp",
         "src/ggml/src/ggml-cpu/ggml-cpu-quants.c",
         "src/ggml/src/ggml-cpu/ggml-cpu-aarch64.cpp",
@@ -57,11 +59,7 @@ cc_library_static {
         "src/src/unicode.cpp",
         "src/src/unicode-data.cpp",
         // common utilities (only what we need for inference)
-        "src/common/common.cpp",
-        "src/common/sampling.cpp",
-        "src/common/json-schema-to-grammar.cpp",
-        "src/common/log.cpp",
-        "src/common/arg.cpp",
+        
     ],
 
     local_include_dirs: [
@@ -82,9 +80,12 @@ cc_library_static {
         "-pthread",
         // ARM NEON is enabled by default on aarch64
         "-Wall",
+        "-fexceptions",
+        "-frtti",
         "-Wno-unused-parameter",
         "-Wno-unused-function",
         "-Wno-missing-field-initializers",
+        "-Wno-implicit-fallthrough",
     ],
 
     arch: {
@@ -106,7 +107,7 @@ cc_library_static {
     // Cuttlefish (x86_64) and real devices (arm64) both supported
     compile_multilib: "both",
 
-    stl: "c++_static",
+    stl: "c++_shared",
 
     export_include_dirs: [
         "src/include",
@@ -125,7 +126,7 @@ cc_library_shared {
 
     shared_libs: [
         "liblog",
-        "libnativehelper",
+        
     ],
 
     static_libs: [
@@ -142,8 +143,12 @@ cc_library_shared {
         "-DNDEBUG",
         "-O3",
         "-Wall",
+        "-fexceptions",
+        "-frtti",
         "-Wno-unused-parameter",
     ],
 
-    stl: "c++_static",
+    header_libs: ["jni_headers"],
+
+    stl: "c++_shared",
 }

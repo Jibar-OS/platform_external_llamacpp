@@ -116,9 +116,21 @@ cc_library_static {
     ],
 }
 
-// JNI shared library used by LlmManagerService
+// JNI shared library used by LlmManagerService inside system_server.
+//
+// Installs to /system/lib64. To get it into the system image, this lib's
+// name (libllm_jni) must appear in PRODUCT_PACKAGES — wired in
+// build/make/target/product/handheld_system_ext.mk.
+//
+// LlmManagerService loads this via System.loadLibrary("llm_jni"). A
+// /data/local/llm/libllm_jni.so fallback exists in the static{} block
+// for dev builds where the lib isn't yet baked into the image; that
+// fallback can be removed once the install rule is in place everywhere.
 cc_library_shared {
     name: "libllm_jni",
+
+    // No vendor_available / product_available — this is system_server-only.
+    // Installs to /system/lib64 by default.
 
     srcs: [
         "jni/llm_jni.cpp",
@@ -126,7 +138,6 @@ cc_library_shared {
 
     shared_libs: [
         "liblog",
-        
     ],
 
     static_libs: [
@@ -151,4 +162,9 @@ cc_library_shared {
     header_libs: ["jni_headers"],
 
     stl: "c++_shared",
+
+    // Build only the 64-bit variant. system_server is 64-bit on every
+    // device AAOSP targets; building the x86 variant just wastes time
+    // and disk.
+    compile_multilib: "64",
 }

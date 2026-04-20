@@ -6,8 +6,8 @@
 
 set -euo pipefail
 
-LLAMA_CPP_VERSION="b4547"  # Update this to pull a new version
-LLAMA_CPP_REPO="https://github.com/ggerganov/llama.cpp"
+LLAMA_CPP_VERSION="b8720"  # Update this to pull a new version
+LLAMA_CPP_REPO="https://github.com/ggml-org/llama.cpp"  # org moved ggerganov -> ggml-org in 2025
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"

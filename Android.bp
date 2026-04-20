@@ -1,66 +1,109 @@
 // Copyright (C) 2024 The AAOSP Project
+// Copyright (C) 2026 The OpenIntelligenceRuntime Project
 //
 // Licensed under the Apache License, Version 2.0
 
 // llama.cpp static library for AOSP
 // Built from upstream llama.cpp source with Android-specific config.
 //
-// Upstream: https://github.com/ggerganov/llama.cpp
+// Upstream: https://github.com/ggml-org/llama.cpp
+// Pin:      b8720 (2026-04-09)
 //
 // To update llama.cpp:
-//   1. Download new release tarball
-//   2. Extract to src/
-//   3. Run: bash scripts/sync_upstream.sh
-//   4. Test build: m libllama
+//   1. Edit scripts/sync_upstream.sh — bump LLAMA_CPP_VERSION
+//   2. Run: bash scripts/sync_upstream.sh
+//   3. Verify source inventory against srcs: block below
+//   4. Test build: m libllama libmtmd
 
 cc_library_static {
     name: "libllama",
     vendor_available: true,
     product_available: true,
 
-    // Source list for llama.cpp b4547+.
+    // Source list for llama.cpp b8720.
     // After running sync_upstream.sh, verify against actual src/ layout:
-    //   find src/ggml/src -name '*.c' -o -name '*.cpp'
+    //   find src/ggml/src -maxdepth 2 -name '*.c' -o -name '*.cpp'
     //   find src/src -name '*.cpp'
-    // Not all files are needed — only core inference, no server/CLI code.
     srcs: [
-        // ggml core (verified against b4547)
+        // ggml core
         "src/ggml/src/ggml.c",
+        "src/ggml/src/ggml.cpp",
         "src/ggml/src/ggml-alloc.c",
         "src/ggml/src/ggml-backend.cpp",
         "src/ggml/src/ggml-backend-reg.cpp",
+        "src/ggml/src/ggml-backend-dl.cpp",
+        "src/ggml/src/ggml-opt.cpp",
         "src/ggml/src/ggml-quants.c",
         "src/ggml/src/ggml-threading.cpp",
         "src/ggml/src/gguf.cpp",
-        // ggml CPU backend
-        "src/ggml/src/ggml-cpu/ggml-cpu-impl.c",
+        // ggml CPU backend — new structure in b8720 splits ops across
+        // multiple TUs; arch-specific SIMD lives under arch/<arch>/.
+        "src/ggml/src/ggml-cpu/ggml-cpu.c",
         "src/ggml/src/ggml-cpu/ggml-cpu.cpp",
-        "src/ggml/src/ggml-cpu/ggml-cpu-quants.c",
-        "src/ggml/src/ggml-cpu/ggml-cpu-aarch64.cpp",
-        "src/ggml/src/ggml-cpu/ggml-cpu-traits.cpp",
-        // llama core
+        "src/ggml/src/ggml-cpu/binary-ops.cpp",
+        "src/ggml/src/ggml-cpu/unary-ops.cpp",
+        "src/ggml/src/ggml-cpu/ops.cpp",
+        "src/ggml/src/ggml-cpu/hbm.cpp",
+        "src/ggml/src/ggml-cpu/quants.c",
+        "src/ggml/src/ggml-cpu/repack.cpp",
+        "src/ggml/src/ggml-cpu/traits.cpp",
+        "src/ggml/src/ggml-cpu/vec.cpp",
+        // llama core — b8720 adds graph/io/memory* and renames
+        // llama-sampling.cpp -> llama-sampler.cpp.
         "src/src/llama.cpp",
-        "src/src/llama-arch.cpp",
         "src/src/llama-adapter.cpp",
+        "src/src/llama-arch.cpp",
         "src/src/llama-batch.cpp",
         "src/src/llama-chat.cpp",
         "src/src/llama-context.cpp",
         "src/src/llama-cparams.cpp",
         "src/src/llama-grammar.cpp",
+        "src/src/llama-graph.cpp",
         "src/src/llama-hparams.cpp",
         "src/src/llama-impl.cpp",
+        "src/src/llama-io.cpp",
         "src/src/llama-kv-cache.cpp",
+        "src/src/llama-kv-cache-iswa.cpp",
+        "src/src/llama-memory.cpp",
+        "src/src/llama-memory-hybrid.cpp",
+        "src/src/llama-memory-hybrid-iswa.cpp",
+        "src/src/llama-memory-recurrent.cpp",
         "src/src/llama-mmap.cpp",
-        "src/src/llama-model.cpp",
         "src/src/llama-model-loader.cpp",
+        "src/src/llama-model.cpp",
+        "src/src/llama-model-saver.cpp",
         "src/src/llama-quant.cpp",
-        "src/src/llama-sampling.cpp",
+        "src/src/llama-sampler.cpp",
         "src/src/llama-vocab.cpp",
         "src/src/unicode.cpp",
         "src/src/unicode-data.cpp",
-        // common utilities (only what we need for inference)
-        
     ],
+
+    arch: {
+        arm64: {
+            srcs: [
+                // ARM-specific CPU SIMD. Actual file list verified at
+                // Phase C time against src/ggml/src/ggml-cpu/arch/arm/.
+                "src/ggml/src/ggml-cpu/arch/arm/quants.c",
+                "src/ggml/src/ggml-cpu/arch/arm/repack.cpp",
+            ],
+            cflags: [
+                "-DGGML_USE_CPU_AARCH64",
+                "-mcpu=cortex-a76",
+            ],
+        },
+        x86_64: {
+            srcs: [
+                "src/ggml/src/ggml-cpu/arch/x86/quants.c",
+                "src/ggml/src/ggml-cpu/arch/x86/repack.cpp",
+            ],
+            cflags: [
+                "-mavx2",
+                "-mfma",
+                "-mf16c",
+            ],
+        },
+    },
 
     local_include_dirs: [
         "src/include",
@@ -78,35 +121,20 @@ cc_library_static {
         "-O3",
         "-fPIC",
         "-pthread",
-        // ARM NEON is enabled by default on aarch64
         "-Wall",
         "-fexceptions",
         "-frtti",
         "-Wno-unused-parameter",
         "-Wno-unused-function",
+        "-Wno-unused-variable",
+        "-Wno-unused-but-set-variable",
         "-Wno-missing-field-initializers",
         "-Wno-implicit-fallthrough",
+        "-Wno-cast-function-type",
+        "-Wno-deprecated-declarations",
     ],
 
-    arch: {
-        arm64: {
-            cflags: [
-                "-DGGML_USE_CPU_AARCH64",
-                "-mcpu=cortex-a76",
-            ],
-        },
-        x86_64: {
-            cflags: [
-                "-mavx2",
-                "-mfma",
-                "-mf16c",
-            ],
-        },
-    },
-
-    // Cuttlefish (x86_64) and real devices (arm64) both supported
     compile_multilib: "both",
-
     stl: "c++_shared",
 
     export_include_dirs: [
@@ -116,40 +144,79 @@ cc_library_static {
     ],
 }
 
-// JNI shared library used by LlmManagerService inside system_server.
-//
-// Installs to /system/lib64. To get it into the system image, this lib's
-// name (libllm_jni) must appear in PRODUCT_PACKAGES — wired in
-// build/make/target/product/handheld_system_ext.mk.
-//
-// LlmManagerService loads this via System.loadLibrary("llm_jni"). A
-// /data/local/llm/libllm_jni.so fallback exists in the static{} block
-// for dev builds where the lib isn't yet baked into the image; that
-// fallback can be removed once the install rule is in place everywhere.
-cc_library_shared {
-    name: "libllm_jni",
-
-    // No vendor_available / product_available — this is system_server-only.
-    // Installs to /system/lib64 by default.
+// v0.5 V1: libmtmd replaces v0.4's libllava (PR #12849 upstream).
+// Provides mtmd_context / mtmd_bitmap / mtmd_input_chunks API for
+// vision.describe (image encoding + tokenization + LLM input chunk
+// preparation). Also includes clip.cpp which survives as the image
+// encoder backbone, exported for potential use by vision.embed in V10.
+// Separate static_lib so libllama stays lean; only oird links libmtmd.
+cc_library_static {
+    name: "libmtmd",
+    vendor_available: true,
+    product_available: true,
 
     srcs: [
-        "jni/llm_jni.cpp",
+        "src/tools/mtmd/clip.cpp",
+        "src/tools/mtmd/mtmd.cpp",
+        "src/tools/mtmd/mtmd-audio.cpp",
+        "src/tools/mtmd/mtmd-helper.cpp",
+        "src/tools/mtmd/mtmd-image.cpp",
     ],
 
-    shared_libs: [
-        "liblog",
+    local_include_dirs: [
+        "src/tools/mtmd",
+        "src/include",
+        "src/ggml/include",
+        "src/common",
+        "src/src",
     ],
 
+    export_include_dirs: [
+        "src/tools/mtmd",
+    ],
+
+    // mtmd + clip depend on llama headers + ggml headers; static-link
+    // libllama so dependents don't need to declare both.
     static_libs: [
         "libllama",
     ],
 
+    cflags: [
+        "-DNDEBUG",
+        "-DGGML_USE_CPU",
+        "-D_GNU_SOURCE",
+        "-O3",
+        "-fPIC",
+        "-pthread",
+        "-Wall",
+        "-fexceptions",
+        "-frtti",
+        "-Wno-unused-parameter",
+        "-Wno-unused-function",
+        "-Wno-unused-variable",
+        "-Wno-unused-but-set-variable",
+        "-Wno-missing-field-initializers",
+        "-Wno-implicit-fallthrough",
+        "-Wno-cast-function-type",
+    ],
+
+    stl: "c++_shared",
+    compile_multilib: "64",
+}
+
+// JNI shared library — kept for AAOSP-era compat. OIR's oird does not
+// use libllm_jni; it links libllama directly in its own Android.bp.
+// Considered removable in a later cleanup if no other consumer surfaces.
+cc_library_shared {
+    name: "libllm_jni",
+    srcs: ["jni/llm_jni.cpp"],
+    shared_libs: ["liblog"],
+    static_libs: ["libllama"],
     local_include_dirs: [
         "src/include",
         "src/ggml/include",
         "src/common",
     ],
-
     cflags: [
         "-DNDEBUG",
         "-O3",
@@ -158,13 +225,7 @@ cc_library_shared {
         "-frtti",
         "-Wno-unused-parameter",
     ],
-
     header_libs: ["jni_headers"],
-
     stl: "c++_shared",
-
-    // Build only the 64-bit variant. system_server is 64-bit on every
-    // device AAOSP targets; building the x86 variant just wastes time
-    // and disk.
     compile_multilib: "64",
 }

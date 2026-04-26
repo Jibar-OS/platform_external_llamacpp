@@ -25,9 +25,14 @@ cc_library_static {
     //   find src/ggml/src -maxdepth 2 -name '*.c' -o -name '*.cpp'
     //   find src/src -name '*.cpp'
     srcs: [
-        // ggml core
+        // ggml core. Note: ggml.cpp and ggml-cpu.cpp live in the
+        // libllama_cxx_companions module below — Soong's per-file
+        // intermediate-object naming uses the basename without the
+        // extension, so co-located ggml.c + ggml.cpp both produce
+        // ggml.o and conflict ([-w dupbuild=err]). Splitting the
+        // .cpp companions into a separate cc_library_static gives
+        // each its own intermediates dir.
         "src/ggml/src/ggml.c",
-        "src/ggml/src/ggml.cpp",
         "src/ggml/src/ggml-alloc.c",
         "src/ggml/src/ggml-backend.cpp",
         "src/ggml/src/ggml-backend-reg.cpp",
@@ -39,7 +44,6 @@ cc_library_static {
         // ggml CPU backend — new structure in b8720 splits ops across
         // multiple TUs; arch-specific SIMD lives under arch/<arch>/.
         "src/ggml/src/ggml-cpu/ggml-cpu.c",
-        "src/ggml/src/ggml-cpu/ggml-cpu.cpp",
         "src/ggml/src/ggml-cpu/binary-ops.cpp",
         "src/ggml/src/ggml-cpu/unary-ops.cpp",
         "src/ggml/src/ggml-cpu/ops.cpp",
@@ -142,6 +146,57 @@ cc_library_static {
         "src/ggml/include",
         "src/common",
     ],
+
+    whole_static_libs: ["libllama_cxx_companions"],
+}
+
+// Holds the small (~25-line) C++ companion files for ggml. They live
+// alongside their .c counterparts (e.g. ggml.c + ggml.cpp at the same
+// path) and Soong's basename-keyed object naming refuses to compile
+// both into the same module. Splitting them into this module gives
+// each .cpp a unique intermediates path; libllama whole_static_libs
+// pulls them in transparently.
+cc_library_static {
+    name: "libllama_cxx_companions",
+    vendor_available: true,
+    product_available: true,
+
+    srcs: [
+        "src/ggml/src/ggml.cpp",
+        "src/ggml/src/ggml-cpu/ggml-cpu.cpp",
+    ],
+
+    local_include_dirs: [
+        "src/include",
+        "src/ggml/include",
+        "src/ggml/src",
+        "src/ggml/src/ggml-cpu",
+        "src/src",
+        "src/common",
+    ],
+
+    cflags: [
+        "-DNDEBUG",
+        "-DGGML_USE_CPU",
+        "-D_GNU_SOURCE",
+        "-O3",
+        "-fPIC",
+        "-pthread",
+        "-Wall",
+        "-fexceptions",
+        "-frtti",
+        "-Wno-unused-parameter",
+        "-Wno-unused-function",
+        "-Wno-unused-variable",
+        "-Wno-unused-but-set-variable",
+        "-Wno-missing-field-initializers",
+        "-Wno-implicit-fallthrough",
+        "-Wno-cast-function-type",
+        "-Wno-deprecated-declarations",
+    ],
+
+    compile_multilib: "both",
+    stl: "c++_shared",
 }
 
 // v0.5 V1: libmtmd replaces v0.4's libllava (PR #12849 upstream).

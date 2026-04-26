@@ -122,6 +122,10 @@ cc_library_static {
         "-DNDEBUG",
         "-DGGML_USE_CPU",
         "-D_GNU_SOURCE",
+        // Upstream uses CMake to inject these; Soong needs them inline.
+        // ggml_version() / ggml_commit() return them via const char*.
+        "-DGGML_VERSION=\"b8720\"",
+        "-DGGML_COMMIT=\"b8720\"",
         "-O3",
         "-fPIC",
         "-pthread",
@@ -179,6 +183,10 @@ cc_library_static {
         "-DNDEBUG",
         "-DGGML_USE_CPU",
         "-D_GNU_SOURCE",
+        // Upstream uses CMake to inject these; Soong needs them inline.
+        // ggml_version() / ggml_commit() return them via const char*.
+        "-DGGML_VERSION=\"b8720\"",
+        "-DGGML_COMMIT=\"b8720\"",
         "-O3",
         "-fPIC",
         "-pthread",

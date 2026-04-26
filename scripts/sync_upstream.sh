@@ -6,12 +6,17 @@
 
 set -euo pipefail
 
-LLAMA_CPP_VERSION="b8720"  # Update this to pull a new version
 LLAMA_CPP_REPO="https://github.com/ggml-org/llama.cpp"  # org moved ggerganov -> ggml-org in 2025
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 SRC_DIR="$ROOT_DIR/src"
+
+# Single source of truth for the upstream version pin. Same file is
+# consumed by Android.bp's ggml-version-header genrule, so bumping
+# version.txt updates both the compiled-in GGML_VERSION/GGML_COMMIT
+# macros AND what this script downloads.
+LLAMA_CPP_VERSION="$(cat "$ROOT_DIR/version.txt" | tr -d '[:space:]')"
 
 echo "=== Syncing llama.cpp $LLAMA_CPP_VERSION ==="
 

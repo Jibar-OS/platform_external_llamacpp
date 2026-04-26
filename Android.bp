@@ -10,10 +10,25 @@
 // Pin:      b8720 (2026-04-09)
 //
 // To update llama.cpp:
-//   1. Edit scripts/sync_upstream.sh — bump LLAMA_CPP_VERSION
+//   1. Edit version.txt — set the new tag (single source of truth;
+//      consumed by both this Android.bp via the genrule below AND by
+//      scripts/sync_upstream.sh).
 //   2. Run: bash scripts/sync_upstream.sh
 //   3. Verify source inventory against srcs: block below
 //   4. Test build: m libllama libmtmd
+
+// Inject GGML_VERSION + GGML_COMMIT macros that ggml.c expects
+// (ggml_version() / ggml_commit() return them via const char*).
+// Upstream uses CMake target_compile_definitions; Soong has no
+// equivalent so we generate a header at build time and force-include
+// it into every TU that consumes the macros.
+genrule {
+    name: "ggml-version-header",
+    srcs: ["version.txt"],
+    out: ["llamacpp_version.h"],
+    cmd: "v=\"$$(cat $(in) | tr -d '[:space:]')\" && " +
+         "printf '#define GGML_VERSION \"%s\"\\n#define GGML_COMMIT \"%s\"\\n' \"$$v\" \"$$v\" > $(out)",
+}
 
 cc_library_static {
     name: "libllama",
@@ -118,14 +133,17 @@ cc_library_static {
         "src/common",
     ],
 
+    generated_headers: ["ggml-version-header"],
+
     cflags: [
         "-DNDEBUG",
         "-DGGML_USE_CPU",
         "-D_GNU_SOURCE",
-        // Upstream uses CMake to inject these; Soong needs them inline.
-        // ggml_version() / ggml_commit() return them via const char*.
-        "-DGGML_VERSION=\"b8720\"",
-        "-DGGML_COMMIT=\"b8720\"",
+        // Force-include the generated header so ggml_version() /
+        // ggml_commit() pick up GGML_VERSION / GGML_COMMIT without us
+        // patching upstream ggml.c. Source of truth: version.txt at
+        // repo root, consumed by the ggml-version-header genrule.
+        "-include llamacpp_version.h",
         "-O3",
         "-fPIC",
         "-pthread",
@@ -179,14 +197,17 @@ cc_library_static {
         "src/common",
     ],
 
+    generated_headers: ["ggml-version-header"],
+
     cflags: [
         "-DNDEBUG",
         "-DGGML_USE_CPU",
         "-D_GNU_SOURCE",
-        // Upstream uses CMake to inject these; Soong needs them inline.
-        // ggml_version() / ggml_commit() return them via const char*.
-        "-DGGML_VERSION=\"b8720\"",
-        "-DGGML_COMMIT=\"b8720\"",
+        // Force-include the generated header so ggml_version() /
+        // ggml_commit() pick up GGML_VERSION / GGML_COMMIT without us
+        // patching upstream ggml.c. Source of truth: version.txt at
+        // repo root, consumed by the ggml-version-header genrule.
+        "-include llamacpp_version.h",
         "-O3",
         "-fPIC",
         "-pthread",

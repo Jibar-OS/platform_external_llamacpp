@@ -158,6 +158,10 @@ cc_library_static {
         "-Wno-implicit-fallthrough",
         "-Wno-cast-function-type",
         "-Wno-deprecated-declarations",
+        // Vendored upstream gguf.cpp + others define classes with virtual
+        // methods and defaulted dtors. AOSP defaults to -Werror=non-virtual-dtor;
+        // demote to a plain warning so we keep the upstream code unmodified.
+        "-Wno-error=non-virtual-dtor",
     ],
 
     compile_multilib: "both",
@@ -222,6 +226,10 @@ cc_library_static {
         "-Wno-implicit-fallthrough",
         "-Wno-cast-function-type",
         "-Wno-deprecated-declarations",
+        // Vendored upstream gguf.cpp + others define classes with virtual
+        // methods and defaulted dtors. AOSP defaults to -Werror=non-virtual-dtor;
+        // demote to a plain warning so we keep the upstream code unmodified.
+        "-Wno-error=non-virtual-dtor",
     ],
 
     compile_multilib: "both",

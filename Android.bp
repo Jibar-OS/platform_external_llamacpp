@@ -245,6 +245,29 @@ cc_library_static {
         "src/tools/mtmd/mtmd-audio.cpp",
         "src/tools/mtmd/mtmd-helper.cpp",
         "src/tools/mtmd/mtmd-image.cpp",
+        // Per-model adapter implementations (b8720 split clip.cpp).
+        "src/tools/mtmd/models/cogvlm.cpp",
+        "src/tools/mtmd/models/conformer.cpp",
+        "src/tools/mtmd/models/deepseekocr.cpp",
+        "src/tools/mtmd/models/gemma4v.cpp",
+        "src/tools/mtmd/models/glm4v.cpp",
+        "src/tools/mtmd/models/hunyuanocr.cpp",
+        "src/tools/mtmd/models/internvl.cpp",
+        "src/tools/mtmd/models/kimik25.cpp",
+        "src/tools/mtmd/models/kimivl.cpp",
+        "src/tools/mtmd/models/llama4.cpp",
+        "src/tools/mtmd/models/llava.cpp",
+        "src/tools/mtmd/models/minicpmv.cpp",
+        "src/tools/mtmd/models/mobilenetv5.cpp",
+        "src/tools/mtmd/models/nemotron-v2-vl.cpp",
+        "src/tools/mtmd/models/paddleocr.cpp",
+        "src/tools/mtmd/models/pixtral.cpp",
+        "src/tools/mtmd/models/qwen2vl.cpp",
+        "src/tools/mtmd/models/qwen3vl.cpp",
+        "src/tools/mtmd/models/siglip.cpp",
+        "src/tools/mtmd/models/step3vl.cpp",
+        "src/tools/mtmd/models/whisper-enc.cpp",
+        "src/tools/mtmd/models/youtuvl.cpp",
     ],
 
     local_include_dirs: [
@@ -253,6 +276,7 @@ cc_library_static {
         "src/ggml/include",
         "src/common",
         "src/src",
+        "src/vendor",
     ],
 
     export_include_dirs: [
